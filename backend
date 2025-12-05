@@ -1,1 +1,369 @@
+## Backend Code
+backend/package.json
+```
+{
+  "name": "rfp-ai-backend",
+  "version": "1.0.0",
+  "main": "src/index.js",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "openai": "latest",
+    "nodemailer": "^6.9.4",
+    "imap-simple": "^5.2.0",
+    "@prisma/client": "latest"
+  },
+  "devDependencies": {
+    "prisma": "latest"
+  }
+}
+```
 
+backend/.env.example
+```
+OPENAI_API_KEY=
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASS=
+IMAP_HOST=imap.gmail.com
+IMAP_USER=
+IMAP_PASS=
+DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/rfpdb"
+FRONTEND_URL=http://localhost:5173
+```
+backend/prisma/schema.prisma
+```
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Rfp {
+  id                 String   @id @default(uuid())
+  title              String
+  descriptionRaw     String
+  structured         Json
+  budget             Float
+  deliveryDays       Int
+  paymentTerms       String
+  warrantyYears      Int
+  items              Json
+  status             String   @default("draft")
+  createdAt          DateTime @default(now())
+  proposals          Proposal[]
+}
+
+model Vendor {
+  id        String     @id @default(uuid())
+  name      String
+  email     String
+  category  String?
+  notes     String?
+  proposals Proposal[]
+}
+
+model Proposal {
+  id            String   @id @default(uuid())
+  rfpId         String
+  vendorId      String
+  emailId       String?
+  rawEmail      String
+  parsed        Json
+  totalPrice    Float?
+  deliveryDays  Int?
+  warrantyYears Int?
+  paymentTerms  String?
+  aiConfidence  Float?
+  score         Float?
+  createdAt     DateTime @default(now())
+
+  rfp    Rfp    @relation(fields: [rfpId], references: [id])
+  vendor Vendor @relation(fields: [vendorId], references: [id])
+}
+```
+backend/src/index.js
+```
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+dotenv.config();
+
+import rfpRoutes from "./routes/rfp.routes.js";
+import vendorRoutes from "./routes/vendor.routes.js";
+import proposalRoutes from "./routes/proposal.routes.js";
+
+import startImapListener from "./email/imapListener.js";
+
+const app = express();
+app.use(express.json());
+app.use(cors());
+
+app.use("/api/rfps", rfpRoutes);
+app.use("/api/vendors", vendorRoutes);
+app.use("/api/proposals", proposalRoutes);
+
+app.listen(4000, () => {
+  console.log("Backend running on port 4000");
+});
+
+// Start email listener
+startImapListener();
+```
+# AI PIPELINES
+backend/src/ai/parseRfp.js
+```
+import OpenAI from "openai";
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+export async function parseRfpFromText(text) {
+  const prompt = `
+Convert this procurement description into a structured RFP JSON:
+Fields:
+- title
+- items (name, quantity, specs)
+- budget
+- deliveryDays
+- paymentTerms
+- warrantyYears
+- notes
+
+Return ONLY valid JSON.
+
+Input:
+${text}
+`;
+
+  const completion = await client.responses.create({
+    model: "gpt-4.1-mini",
+    input: prompt,
+  });
+
+  return JSON.parse(completion.output_text);
+}
+```
+## backend/src/ai/parseProposal.js
+```
+import OpenAI from "openai";
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+export async function parseVendorEmail(emailBody) {
+  const prompt = `
+Extract vendor proposal info from this email.
+Return JSON with:
+- totalPrice
+- itemPrices
+- deliveryDays
+- warrantyYears
+- paymentTerms
+- notes
+
+Email:
+${emailBody}
+
+Return ONLY JSON.
+`;
+
+  const res = await client.responses.create({
+    model: "gpt-4.1-mini",
+    input: prompt,
+  });
+
+  return JSON.parse(res.output_text);
+}
+```
+backend/src/ai/compare.js
+```
+import OpenAI from "openai";
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+export async function generateComparison(rfp, proposals) {
+  const prompt = `
+Compare vendor proposals for this RFP.
+
+RFP:
+${JSON.stringify(rfp)}
+
+Proposals:
+${JSON.stringify(proposals)}
+
+Generate:
+1. Summary
+2. Ranking with explanation
+3. Recommendation
+
+Return JSON with fields:
+- summary
+- rankings
+- recommendedVendor
+  `;
+
+  const res = await client.responses.create({
+    model: "gpt-4.1",
+    input: prompt,
+  });
+
+  return JSON.parse(res.output_text);
+}
+```
+# EMAIL SENDING & RECEIVING
+backend/src/email/sendRfp.js
+```
+import nodemailer from "nodemailer";
+
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: process.env.SMTP_PORT,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS
+  }
+});
+
+export async function sendRfpEmail(vendor, rfp) {
+  const html = `
+  <h2>New RFP: ${rfp.title}</h2>
+  <p>${rfp.descriptionRaw}</p>
+  <pre>${JSON.stringify(rfp.structured, null, 2)}</pre>
+  `;
+
+  await transporter.sendMail({
+    from: process.env.SMTP_USER,
+    to: vendor.email,
+    subject: `RFP Invitation – ${rfp.title}`,
+    html
+  });
+
+  return true;
+}
+```
+backend/src/email/imapListener.js
+```
+import imaps from "imap-simple";
+import { parseVendorEmail } from "../ai/parseProposal.js";
+import { prisma } from "../db/prisma.js";
+
+export default async function startImap() {
+  const config = {
+    imap: {
+      user: process.env.IMAP_USER,
+      password: process.env.IMAP_PASS,
+      host: process.env.IMAP_HOST,
+      port: 993,
+      tls: true,
+      authTimeout: 3000
+    }
+  };
+
+  const connection = await imaps.connect(config);
+  await connection.openBox("INBOX");
+
+  setInterval(async () => {
+    const messages = await connection.search(["UNSEEN"], { bodies: ["TEXT"] });
+
+    for (const msg of messages) {
+      const body = msg.parts[0].body;
+
+      const parsed = await parseVendorEmail(body);
+
+      const vendor = await prisma.vendor.findFirst();
+      const rfp = await prisma.rfp.findFirst();
+
+      await prisma.proposal.create({
+        data: {
+          vendorId: vendor.id,
+          rfpId: rfp.id,
+          rawEmail: body,
+          parsed,
+          totalPrice: parsed.totalPrice,
+          deliveryDays: parsed.deliveryDays
+        }
+      });
+    }
+  }, 30000);
+}
+```
+## ROUTES
+backend/src/routes/rfp.routes.js
+```
+import { Router } from "express";
+import { parseRfpFromText } from "../ai/parseRfp.js";
+import { prisma } from "../db/prisma.js";
+import { sendRfpEmail } from "../email/sendRfp.js";
+
+const router = Router();
+
+router.post("/parse", async (req, res) => {
+  const structured = await parseRfpFromText(req.body.text);
+  res.json(structured);
+});
+
+router.post("/", async (req, res) => {
+  const rfp = await prisma.rfp.create({ data: req.body });
+  res.json(rfp);
+});
+
+router.get("/:id", async (req, res) => {
+  const rfp = await prisma.rfp.findUnique({ where: { id: req.params.id } });
+  res.json(rfp);
+});
+
+router.post("/:id/send", async (req, res) => {
+  const rfp = await prisma.rfp.findUnique({ where: { id: req.params.id } });
+  const vendors = await prisma.vendor.findMany({
+    where: { id: { in: req.body.vendorIds } }
+  });
+
+  for (const v of vendors) await sendRfpEmail(v, rfp);
+
+  res.json({ success: true });
+});
+
+export default router;
+
+backend/src/routes/vendor.routes.js
+import { Router } from "express";
+import { prisma } from "../db/prisma.js";
+
+const router = Router();
+
+router.get("/", async (_, res) => {
+  res.json(await prisma.vendor.findMany());
+});
+
+router.post("/", async (req, res) => {
+  res.json(await prisma.vendor.create({ data: req.body }));
+});
+
+export default router;
+
+backend/src/routes/proposal.routes.js
+import { Router } from "express";
+import { prisma } from "../db/prisma.js";
+import { generateComparison } from "../ai/compare.js";
+
+const router = Router();
+
+router.get("/rfp/:id", async (req, res) => {
+  const proposals = await prisma.proposal.findMany({
+    where: { rfpId: req.params.id },
+    include: { vendor: true }
+  });
+  res.json(proposals);
+});
+router.get("/rfp/:id/compare", async (req, res) => {
+  const rfp = await prisma.rfp.findUnique({ where: { id: req.params.id } });
+  const proposals = await prisma.proposal.findMany({
+    where: { rfpId: req.params.id },
+    include: { vendor: true }
+  });
+
+  const result = await generateComparison(rfp, proposals);
+  res.json(result);
+});
+export default router;
