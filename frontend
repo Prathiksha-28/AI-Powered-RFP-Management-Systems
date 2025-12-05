@@ -1,0 +1,277 @@
+# frontend code
+## frontend/package.json
+```
+{
+  "name": "rfp-ai-frontend",
+  "version": "1.0.0",
+  "dependencies": {
+    "react": "^18",
+    "react-dom": "^18",
+    "@mui/material": "^5",
+    "axios": "^1.5.0",
+    "react-router-dom": "^6.20.0"
+  }
+}
+```
+## frontend/src/main.jsx
+```
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App.jsx";
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+```
+## frontend/src/App.jsx
+```
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import CreateRfp from "./pages/CreateRfp.jsx";
+import Vendors from "./pages/Vendors.jsx";
+import SendRfp from "./pages/SendRfp.jsx";
+import Proposals from "./pages/Proposals.jsx";
+import Compare from "./pages/Compare.jsx";
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<CreateRfp />} />
+        <Route path="/vendors" element={<Vendors />} />
+        <Route path="/send/:id" element={<SendRfp />} />
+        <Route path="/proposals/:id" element={<Proposals />} />
+        <Route path="/compare/:id" element={<Compare />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+```
+## frontend/src/pages/CreateRfp.jsx
+```
+import { useState } from "react";
+import axios from "axios";
+
+export default function CreateRfp() {
+  const [text, setText] = useState("");
+  const [structured, setStructured] = useState(null);
+
+  async function generate() {
+    const res = await axios.post("http://localhost:4000/api/rfps/parse", {
+      text,
+    });
+    setStructured(res.data);
+  }
+
+  async function save() {
+    const res = await axios.post("http://localhost:4000/api/rfps", {
+      title: structured.title,
+      descriptionRaw: text,
+      structured,
+      budget: structured.budget,
+      deliveryDays: structured.deliveryDays,
+      paymentTerms: structured.paymentTerms,
+      warrantyYears: structured.warrantyYears,
+      items: structured.items,
+    });
+    alert("Saved RFP: " + res.data.id);
+  }
+
+  return (
+    <div style={{ padding: 40 }}>
+      <h1>Create RFP</h1>
+
+      <textarea
+        style={{ width: "100%", height: 200 }}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+      />
+
+      <button onClick={generate}>Generate Structured RFP</button>
+
+      {structured && (
+        <>
+          <pre>{JSON.stringify(structured, null, 2)}</pre>
+          <button onClick={save}>Save RFP</button>
+        </>
+      )}
+    </div>
+  );
+} 
+```
+## frontend/src/pages/Vendors.jsx
+```
+import { useEffect, useState } from "react";
+import axios from "axios";
+
+export default function Vendors() {
+  const [vendors, setVendors] = useState([]);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+
+  async function fetchVendors() {
+    const res = await axios.get("http://localhost:4000/api/vendors");
+    setVendors(res.data);
+  }
+
+  async function addVendor() {
+    await axios.post("http://localhost:4000/api/vendors", { name, email });
+    setName("");
+    setEmail("");
+    fetchVendors();
+  }
+
+  useEffect(() => {
+    fetchVendors();
+  }, []);
+
+  return (
+    <div style={{ padding: 40 }}>
+      <h1>Vendors</h1>
+
+      <input
+        placeholder="Name"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+      />
+      <input
+        placeholder="Email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+      />
+      <button onClick={addVendor}>Add Vendor</button>
+
+      <ul>
+        {vendors.map((v) => (
+          <li key={v.id}>{v.name} - {v.email}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+## frontend/src/pages/SendRfp.jsx
+```
+import { useState, useEffect } from "react";
+import axios from "axios";
+import { useParams } from "react-router-dom";
+
+export default function SendRfp() {
+  const { id } = useParams();
+  const [rfp, setRfp] = useState(null);
+  const [vendors, setVendors] = useState([]);
+  const [selected, setSelected] = useState([]);
+
+  useEffect(() => {
+    axios.get(`http://localhost:4000/api/rfps/${id}`).then((res) => setRfp(res.data));
+    axios.get("http://localhost:4000/api/vendors").then((res) => setVendors(res.data));
+  }, [id]);
+
+  async function send() {
+    await axios.post(`http://localhost:4000/api/rfps/${id}/send`, { vendorIds: selected });
+    alert("RFP sent!");
+  }
+
+  return rfp ? (
+    <div style={{ padding: 40 }}>
+      <h1>Send RFP: {rfp.title}</h1>
+      <h3>Select Vendors</h3>
+      {vendors.map((v) => (
+        <div key={v.id}>
+          <input
+            type="checkbox"
+            value={v.id}
+            onChange={(e) => {
+              if (e.target.checked) setSelected([...selected, v.id]);
+              else setSelected(selected.filter((id) => id !== v.id));
+            }}
+          />
+          {v.name} ({v.email})
+        </div>
+      ))}
+      <button onClick={send}>Send RFP</button>
+    </div>
+  ) : <p>Loading...</p>;
+}
+
+## frontend/src/pages/Proposals.jsx
+```
+import { useEffect, useState } from "react";
+import axios from "axios";
+import { useParams } from "react-router-dom";
+
+export default function Proposals() {
+  const { id } = useParams();
+  const [proposals, setProposals] = useState([]);
+
+  useEffect(() => {
+    axios.get(`http://localhost:4000/api/proposals/rfp/${id}`).then(res => setProposals(res.data));
+  }, [id]);
+
+  return (
+    <div style={{ padding: 40 }}>
+      <h1>Proposals</h1>
+      {proposals.map((p) => (
+        <div key={p.id} style={{ border: "1px solid #ccc", padding: 10, marginBottom: 10 }}>
+          <h3>{p.vendor.name}</h3>
+          <p>Total Price: {p.totalPrice}</p>
+          <p>Delivery Days: {p.deliveryDays}</p>
+          <p>Warranty Years: {p.warrantyYears}</p>
+          <pre>{JSON.stringify(p.parsed, null, 2)}</pre>
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+## frontend/src/pages/Compare.jsx
+```
+import { useEffect, useState } from "react";
+import axios from "axios";
+import { useParams } from "react-router-dom";
+
+export default function Compare() {
+  const { id } = useParams();
+  const [result, setResult] = useState(null);
+
+  useEffect(() => {
+    axios.get(`http://localhost:4000/api/proposals/rfp/${id}/compare`).then(res => setResult(res.data));
+  }, [id]);
+
+  return (
+    <div style={{ padding: 40 }}>
+      <h1>Comparison</h1>
+      {result ? (
+        <>
+          <h3>Recommended Vendor: {result.recommendedVendor}</h3>
+          <h4>Summary:</h4>
+          <pre>{result.summary}</pre>
+          <h4>Rankings:</h4>
+          <pre>{JSON.stringify(result.rankings, null, 2)}</pre>
+        </>
+      ) : <p>Loading...</p>}
+    </div>
+  );
+}
+```
+## FRONTEND COMPONENT
+###RfpCard.jsx
+```
+export default function RfpCard({ rfp }) {
+  return (
+    <div style={{ border: "1px solid gray", margin: 10, padding: 10 }}>
+      <h3>{rfp.title}</h3>
+      <p>Budget: {rfp.budget}</p>
+      <p>Delivery Days: {rfp.deliveryDays}</p>
+    </div>
+  );
+}
+```
+### ProposalCard.jsx
+```export default function ProposalCard({ proposal }) {
+  return (
+    <div style={{ border: "1px solid gray", margin: 10, padding: 10 }}>
+      <h3>{proposal.vendor.name}</h3>
+      <p>Total Price: {proposal.totalPrice}</p>
+      <p>Delivery: {proposal.deliveryDays} days</p>
+    </div>
+  );
+}
+```
