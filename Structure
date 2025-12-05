@@ -1,10 +1,48 @@
-/backend
-  /src
-    /routes
-    /services
-    /email
-    /ai
-/frontend
-  /src
-    /pages
-    /components
+
+├── backend/
+│   ├── src/
+│   │   ├── index.js
+│   │   ├── config/
+│   │   │   ├── env.js
+│   │   │   ├── email.js
+│   │   ├── ai/
+│   │   │   ├── parseRfp.js
+│   │   │   ├── parseProposal.js
+│   │   │   ├── compare.js
+│   │   ├── db/
+│   │   │   ├── prisma.js
+│   │   ├── email/
+│   │   │   ├── sendRfp.js
+│   │   │   ├── imapListener.js
+│   │   ├── routes/
+│   │   │   ├── rfp.routes.js
+│   │   │   ├── vendor.routes.js
+│   │   │   ├── proposal.routes.js
+│   │   ├── services/
+│   │   │   ├── rfp.service.js
+│   │   │   ├── vendor.service.js
+│   │   │   ├── proposal.service.js
+│   │   ├── utils/jsonResponse.js
+│   ├── prisma/
+│   │   ├── schema.prisma
+│   ├── package.json
+│   ├── .env.example
+│
+├── frontend/
+│   ├── src/
+│   │   ├── main.jsx
+│   │   ├── App.jsx
+│   │   ├── pages/
+│   │   │   ├── CreateRfp.jsx
+│   │   │   ├── Vendors.jsx
+│   │   │   ├── SendRfp.jsx
+│   │   │   ├── Proposals.jsx
+│   │   │   ├── Compare.jsx
+│   │   ├── components/
+│   │   │   ├── RfpCard.jsx
+│   │   │   ├── ProposalCard.jsx
+│   ├── package.json
+│   ├── vite.config.js
+│
+└── README.md
+
