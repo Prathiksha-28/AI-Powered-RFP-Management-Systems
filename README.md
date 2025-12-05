@@ -32,7 +32,7 @@ Backend (Node.js + Express)
        |
        +--> OpenAI GPT-4 / GPT-4.1-mini
        |
-       +--> Email (SMTP send, IMAP receive)```
+       +--> Email (SMTP send, IMAP receive) ```
 
 
 Flow: User → Create RFP → Select Vendors → Send Email → Vendor Replies → AI Parses Proposal → Compare & Recommend.
