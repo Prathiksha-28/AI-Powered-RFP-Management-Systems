@@ -1,5 +1,5 @@
 #** Backend Code **
-backend/package.json
+_backend/package.json_
 ```
 {
   "name": "rfp-ai-backend",
