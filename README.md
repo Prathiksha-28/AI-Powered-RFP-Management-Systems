@@ -35,8 +35,6 @@ Backend (Node.js + Express)
        |
        +--> Email (SMTP send, IMAP receive)
  ```
-
-
 Flow: User → Create RFP → Select Vendors → Send Email → Vendor Replies → AI Parses Proposal → Compare & Recommend.
 
 # 4. Tech Stack
