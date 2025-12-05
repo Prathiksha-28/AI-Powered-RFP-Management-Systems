@@ -1,5 +1,5 @@
-#** Backend Code **
-_backend/package.json_
+# Backend Code 
+## backend/package.json
 ```
 {
   "name": "rfp-ai-backend",
@@ -20,7 +20,7 @@ _backend/package.json_
 }
 ```
 
-backend/.env.example
+## backend/.env.example
 ```
 OPENAI_API_KEY=
 SMTP_HOST=smtp.gmail.com
@@ -33,7 +33,7 @@ IMAP_PASS=
 DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/rfpdb"
 FRONTEND_URL=http://localhost:5173
 ```
-backend/prisma/schema.prisma
+## backend/prisma/schema.prisma
 ```
 generator client {
   provider = "prisma-client-js"
@@ -87,7 +87,7 @@ model Proposal {
   vendor Vendor @relation(fields: [vendorId], references: [id])
 }
 ```
-backend/src/index.js
+## backend/src/index.js
 ```
 import express from "express";
 import cors from "cors";
@@ -116,7 +116,7 @@ app.listen(4000, () => {
 startImapListener();
 ```
 # AI PIPELINES
-backend/src/ai/parseRfp.js
+## backend/src/ai/parseRfp.js
 ```
 import OpenAI from "openai";
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -177,7 +177,7 @@ Return ONLY JSON.
   return JSON.parse(res.output_text);
 }
 ```
-backend/src/ai/compare.js
+## backend/src/ai/compare.js
 ```
 import OpenAI from "openai";
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -212,7 +212,7 @@ Return JSON with fields:
 }
 ```
 # EMAIL SENDING & RECEIVING
-backend/src/email/sendRfp.js
+## backend/src/email/sendRfp.js
 ```
 import nodemailer from "nodemailer";
 
@@ -242,7 +242,7 @@ export async function sendRfpEmail(vendor, rfp) {
   return true;
 }
 ```
-backend/src/email/imapListener.js
+## backend/src/email/imapListener.js
 ```
 import imaps from "imap-simple";
 import { parseVendorEmail } from "../ai/parseProposal.js";
@@ -288,8 +288,8 @@ export default async function startImap() {
   }, 30000);
 }
 ```
-## ROUTES
-backend/src/routes/rfp.routes.js
+# ROUTES
+## backend/src/routes/rfp.routes.js
 ```
 import { Router } from "express";
 import { parseRfpFromText } from "../ai/parseRfp.js";
@@ -325,8 +325,9 @@ router.post("/:id/send", async (req, res) => {
 });
 
 export default router;
-
-backend/src/routes/vendor.routes.js
+```
+## backend/src/routes/vendor.routes.js
+```
 import { Router } from "express";
 import { prisma } from "../db/prisma.js";
 
@@ -341,8 +342,9 @@ router.post("/", async (req, res) => {
 });
 
 export default router;
-
-backend/src/routes/proposal.routes.js
+```
+## backend/src/routes/proposal.routes.js
+```
 import { Router } from "express";
 import { prisma } from "../db/prisma.js";
 import { generateComparison } from "../ai/compare.js";
@@ -366,4 +368,4 @@ router.get("/rfp/:id/compare", async (req, res) => {
   const result = await generateComparison(rfp, proposals);
   res.json(result);
 });
-export default router;
+export default router;```   
