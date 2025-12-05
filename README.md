@@ -23,7 +23,8 @@ Proposal Parsing: Extract pricing, delivery, warranty, and terms using AI.
 Comparison & Recommendation: AI-assisted proposal evaluation with summary, ranking, and recommended vendor.
 
 # 3. Architecture
-```Frontend (React + Vite + MUI)
+```
+Frontend (React + Vite + MUI)
        |
        v
 Backend (Node.js + Express)
@@ -32,7 +33,8 @@ Backend (Node.js + Express)
        |
        +--> OpenAI GPT-4 / GPT-4.1-mini
        |
-       +--> Email (SMTP send, IMAP receive) ```
+       +--> Email (SMTP send, IMAP receive)
+ ```
 
 
 Flow: User → Create RFP → Select Vendors → Send Email → Vendor Replies → AI Parses Proposal → Compare & Recommend.
@@ -53,15 +55,19 @@ Dev Tools: Prisma Migrate, Vite Dev Server
 
 # 5. Setup & Installation
 Backend
-```cd backend
+```
+cd backend
 npm install
 npx prisma migrate dev --name init
-npm run dev```
+npm run dev
+```
 
 Frontend
-```cd frontend
+```
+cd frontend
 npm install
-npm run dev```
+npm run dev
+```
 
 
 Backend runs on http://localhost:4000
@@ -72,7 +78,8 @@ Frontend runs on http://localhost:5173
 
 Copy .env.example → .env and fill in:
 
-```OPENAI_API_KEY=
+```
+OPENAI_API_KEY=
 SMTP_HOST=
 SMTP_PORT=
 SMTP_USER=
@@ -81,7 +88,8 @@ IMAP_HOST=
 IMAP_USER=
 IMAP_PASS=
 DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/rfpdb"
-FRONTEND_URL=http://localhost:5173```
+FRONTEND_URL=http://localhost:5173
+```
 
 # 7. Database Schema
 
