@@ -1,0 +1,10 @@
+/backend
+  /src
+    /routes
+    /services
+    /email
+    /ai
+/frontend
+  /src
+    /pages
+    /components
